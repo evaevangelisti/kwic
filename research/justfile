@@ -1,0 +1,7 @@
+# List the recipes.
+default:
+    @just --list
+
+# Measure the engines against a treebank.
+evaluate *options:
+    @uv run python -m evaluation.evaluation {{ options }}
