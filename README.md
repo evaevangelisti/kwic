@@ -49,13 +49,14 @@ locator.find("She found the keys she had lost.", [Query("find", POS.VERB)])
 | Field | Default | |
 | --- | --- | --- |
 | `lemma` | | Dictionary form to look for, in whatever case |
-| `pos` | `None` | Tag an occurrence must carry; none takes every reading |
+| `pos` | `None` | Tag a one-word occurrence must carry; a longer lemma is not narrowed |
+| `forms` | `()` | How else the lemma is written, taken where the engine read another |
 
-The engine cuts the lemma into words, so `pre-university` is three and `give up` two.
+The engine cuts the lemma into words, and a space and a hyphen are one to it.
 
 ```python
-locator.find("She gave up on it.", [Query("give up", POS.VERB)])
-# (Match(lemma='give up', pos=POS.VERB, form='gave up', word_index=1, offsets=(4, 11)),)
+locator.find("It was hunky-dory.", [Query("hunky dory")])
+# (Match(lemma='hunky dory', pos=POS.ADJ, form='hunky-dory', word_index=2, offsets=(7, 17)),)
 ```
 
 A phrasal verb written apart runs from the verb to the particle.
@@ -69,7 +70,7 @@ locator.find("She gave the money up.", [Query("give up")])
 
 | Field | |
 | --- | --- |
-| `lemma` | The lemma it was read as |
+| `lemma` | The lemma you asked for, as you wrote it |
 | `pos` | The tag it carries |
 | `form` | How it is written |
 | `word_index` | Where it opens among the words, from zero |
@@ -132,6 +133,6 @@ English-EWT test section: 2,077 sentences, 417 lemmas, 3,619 occurrences.
 | --- | --- | --- | --- |
 | `StanzaEngine` | 0.975 | 0.963 | 0.969 |
 | `SpacyEngine`, `en_core_web_trf` | 0.981 | 0.905 | 0.942 |
-| `SpacyEngine`, `en_core_web_lg` | 0.977 | 0.891 | 0.932 |
-| `SpacyEngine`, `en_core_web_sm` | 0.978 | 0.882 | 0.927 |
-| `LemmInflectEngine` | 0.975 | 0.871 | 0.920 |
+| `SpacyEngine`, `en_core_web_lg` | 0.978 | 0.891 | 0.933 |
+| `SpacyEngine`, `en_core_web_sm` | 0.978 | 0.882 | 0.928 |
+| `LemmInflectEngine` | 0.976 | 0.872 | 0.921 |
