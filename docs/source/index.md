@@ -17,7 +17,7 @@ accuracy
 
 reference/models/index
 reference/engines/index
-reference/locator
+reference/search/index
 reference/normalisation
 reference/constants
 ```

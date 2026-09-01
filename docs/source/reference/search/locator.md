@@ -1,6 +1,6 @@
 # Locator
 
 ```{eval-rst}
-.. automodule:: kwic.locator
+.. automodule:: kwic.search.locator
    :members:
 ```
