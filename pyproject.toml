@@ -108,7 +108,7 @@ ignore = [
 
 # A text sets its apostrophes and its hyphens typographically, which is what
 # the search unifies before it reads a lemma back out of one.
-allowed-confusables = ["’", "‘", "‐", "‑"]
+allowed-confusables = ["–", "’", "‘", "‐", "‑"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 88

@@ -193,6 +193,17 @@ class TestQueries:
 
         assert under_any == under_each
 
+    def test_takes_a_word_written_as_a_form_it_was_given(
+        self,
+    ) -> None:
+        """A form stands in where the engine read the word as another lemma."""
+        reading = (Token(lemma="thank", pos=POS.NOUN, form="Thanks", offsets=(0, 6)),)
+
+        assert _find_matches(reading, [Query("thanks", POS.NOUN)]) == ()
+        assert _find_matches(
+            reading, [Query("thanks", POS.NOUN, frozenset({"Thanks"}))]
+        )
+
     def test_takes_a_lemma_however_its_apostrophe_is_set(
         self,
     ) -> None:
@@ -223,6 +234,20 @@ class TestLemmasOfSeveralWords:
         assert found
         assert all(match.lemma.casefold() == lemma.casefold() for match in found)
 
+    def test_takes_a_form_of_several_words(
+        self,
+    ) -> None:
+        """A form is cut like a lemma, so one of several words is looked for."""
+        reading = (
+            Token(lemma="electric", pos=POS.ADJ, form="electric", offsets=None),
+            Token(lemma="eels", pos=POS.NOUN, form="eels", offsets=None),
+        )
+
+        assert _find_matches(reading, [Query("electric eel")]) == ()
+        assert _find_matches(
+            reading, [Query("electric eel", None, frozenset({"electric eels"}))]
+        )
+
     def test_takes_the_longest_lemma_that_fits(
         self,
     ) -> None:
@@ -238,17 +263,28 @@ class TestLemmasOfSeveralWords:
             ("give up", "gave up")
         ]
 
-    def test_carries_the_tag_of_the_word_it_opens_on(
+    def test_is_not_narrowed_by_a_tag_at_all(
         self,
     ) -> None:
-        """The tag of give up is the tag of give, the particle carrying another."""
+        """A dictionary tags the whole expression, which no one word need carry."""
         reading = (
-            Token(lemma="give", pos=POS.VERB, form="gave", offsets=None),
-            Token(lemma="up", pos=POS.ADP, form="up", offsets=None),
+            Token(lemma="electric", pos=POS.ADJ, form="electric", offsets=None),
+            Token(lemma="eel", pos=POS.NOUN, form="eel", offsets=None),
         )
 
-        assert _find_matches(reading, [Query("give up", POS.VERB)])
-        assert _find_matches(reading, [Query("give up", POS.ADP)]) == ()
+        assert all(_find_matches(reading, [Query("electric eel", pos)]) for pos in POS)
+
+    def test_stops_at_a_blank_line_between_its_words(
+        self,
+    ) -> None:
+        """A blank line parts two blocks, and no lemma runs across one."""
+        reading = (
+            Token(lemma="give", pos=POS.VERB, form="give", offsets=(0, 4)),
+            Token(lemma="\n\n", pos=POS.X, form="\n\n", offsets=(4, 6)),
+            Token(lemma="up", pos=POS.ADP, form="up", offsets=(6, 8)),
+        )
+
+        assert _find_matches(reading, [Query("give up")]) == ()
 
     def test_steps_over_the_whitespace_between_its_words(
         self,
@@ -302,6 +338,18 @@ class TestPhrasalVerbsWrittenApart:
         )
 
         assert Locator(Given(reading)).find(self._CONTEXT, [Query("give up")]) == ()
+
+    def test_wins_over_the_verb_it_opens_on(
+        self,
+    ) -> None:
+        """The longer lemma wins, the particle written apart or beside it."""
+        found = Locator(Given(self._READING)).find(
+            self._CONTEXT, [Query("give"), Query("give up")]
+        )
+
+        assert [(match.lemma, match.form) for match in found] == [
+            ("give up", "gave it up")
+        ]
 
     def test_reads_the_words_between_for_what_else_is_asked(
         self,
@@ -398,6 +446,15 @@ class TestReadings:
         assert [(match.form, match.offsets) for match in found] == [
             ("gave the money up", (4, 21))
         ]
+
+    def test_takes_a_lemma_however_its_words_are_parted(
+        self,
+        locator: Locator,
+    ) -> None:
+        """A dictionary writes hunky dory where a text writes hunky-dory."""
+        assert locator.find("It was hunky-dory.", [Query("hunky dory")])
+        assert locator.find("It was hunky dory.", [Query("hunky-dory")])
+        assert locator.find("A back-seat driver.", [Query("back seat driver")])
 
     def test_places_a_context_split_beforehand_by_its_words(
         self,

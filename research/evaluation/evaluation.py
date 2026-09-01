@@ -24,9 +24,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
-from typing import override
+from typing import cast, override
 
 import treebanks
+from lemminflect import (  # pyright: ignore[reportMissingTypeStubs]
+    getAllInflections,  # pyright: ignore[reportUnknownVariableType]
+    getAllInflectionsOOV,  # pyright: ignore[reportUnknownVariableType]
+)
 from treebanks import Sentence, Word
 
 from kwic import POS, Context, Engine, Locator, Query, SpacyEngine, Token
@@ -237,6 +241,54 @@ def sample_queries(
     }
 
     return tuple(queries)
+
+
+def with_forms(
+    queries: Iterable[Query],
+) -> tuple[Query, ...]:
+    """
+    Give every query the forms LemmInflect writes its lemma as.
+
+    Its lexicon holds nothing for a rare word, and the rare words are the
+    ones an engine reads wrongly, so what it holds none of it generates.
+
+    Args:
+        queries: The lemmas asked for.
+
+    Returns:
+        The same queries, each carrying its inflections.
+    """
+    return tuple(
+        Query(
+            lemma=query.lemma,
+            pos=query.pos,
+            forms=frozenset(
+                form
+                for written in _inflections(query.lemma, query.pos).values()
+                for form in written
+            ),
+        )
+        for query in queries
+    )
+
+
+def _inflections(
+    lemma: str,
+    pos: POS | None,
+) -> dict[str, tuple[str, ...]]:
+    """
+    Read every form of one lemma, from the lexicon or from the rules.
+
+    Args:
+        lemma: The lemma to inflect.
+        pos: The tag to inflect it under.
+
+    Returns:
+        The forms, under the tag each carries.
+    """
+    held = cast("dict[str, tuple[str, ...]]", getAllInflections(lemma, pos))
+
+    return held or cast("dict[str, tuple[str, ...]]", getAllInflectionsOOV(lemma, pos))
 
 
 def recorded_words(
@@ -492,6 +544,7 @@ class Arguments(argparse.Namespace):
         queries: How many draws to make.
         seed: What to draw them with.
         sentences: How many sentences to read, or None for the section.
+        forms: Whether to give every query the forms of its lemma.
         to: Which directory the evaluation is written to.
     """
 
@@ -500,6 +553,7 @@ class Arguments(argparse.Namespace):
     queries: int = QUERIES
     seed: int = SEED
     sentences: int | None = None
+    forms: bool = False
     to: Path = EVALUATIONS
 
 
@@ -539,6 +593,11 @@ def read_arguments() -> Arguments:
         help="read this many sentences only, for a quick pass",
     )
     _ = parser.add_argument(
+        "--forms",
+        action="store_true",
+        help="give every query the forms of its lemma, as a fallback",
+    )
+    _ = parser.add_argument(
         "--to",
         type=Path,
         help="write the evaluation to this directory",
@@ -564,6 +623,9 @@ def main() -> None:
         OWN_TAG: queries,
         ANY_TAG: tuple({Query(lemma=query.lemma) for query in queries}),
     }
+
+    if arguments.forms:
+        questions = {caption: with_forms(asked) for caption, asked in questions.items()}
 
     scored = evaluate(arguments.engine or sorted(ENGINES), sentences, questions)
 

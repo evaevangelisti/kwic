@@ -57,6 +57,8 @@ class SpacyEngine(Engine):
 
         Raises:
             OSError: If the pipeline is not installed.
+            ValueError: When read, if a context is longer than spaCy's
+            nlp.max_length, a million characters.
         """
         self._pipeline: Language = spacy.load(
             pipeline,

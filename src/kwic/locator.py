@@ -3,18 +3,36 @@ The search a caller runs.
 """
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from itertools import tee
 
 from .engines import Engine, SpacyEngine
 from .models import POS, Context, Match, Query, Token
-from .normalisation import normalise
+from .normalisation import normalise, spellings
 
-type Lexicon = Mapping[tuple[str, ...], frozenset[POS]]
-"""What a search looks a word up in: every queried lemma, cut into its words
-and normalised, under the tags it is read beneath."""
+
+@dataclass(frozen=True, slots=True)
+class Lexicon:
+    """
+    What a search looks a word up in, everything in it normalised.
+
+    Attributes:
+        lemmas: The tags each queried lemma is read under, cut into words.
+        forms: The tags each queried form is read under, cut the same way.
+    """
+
+    lemmas: Mapping[tuple[str, ...], frozenset[POS]]
+    forms: Mapping[tuple[str, ...], frozenset[POS]]
+
 
 ALL_TAGS = frozenset(POS)
 """What a query naming no part of speech narrows to, which is no narrowing."""
+
+PARTICLE_WORDS = 2
+"""How many words a phrasal verb is, its particle written apart or not."""
+
+PARAGRAPH = 2
+"""How many line breaks part two blocks rather than wrap one line."""
 
 
 class Locator:
@@ -42,7 +60,33 @@ class Locator:
         self._engine: Engine = engine if engine is not None else SpacyEngine()
 
         self._last_queries: frozenset[Query] | None = None
-        self._last_lexicon: Lexicon = {}
+        self._last_lexicon: Lexicon = Lexicon(lemmas={}, forms={})
+
+    def _keys(
+        self,
+        spelled: Sequence[tuple[Query, str]],
+    ) -> dict[tuple[str, ...], frozenset[POS]]:
+        """
+        Cut every spelling into the words a context would be read as.
+
+        Args:
+            spelled: A query and one way of writing what it looks for.
+
+        Returns:
+            The tags to look each cut up under, the whole spelling standing
+            beside the cut for a text that writes it as one word.
+        """
+        keys: dict[tuple[str, ...], frozenset[POS]] = {}
+        cuts = self._engine.split_all(spelling for _, spelling in spelled)
+
+        for (query, spelling), words in zip(spelled, cuts, strict=True):
+            tags = ALL_TAGS if query.pos is None else frozenset({query.pos})
+            cut = tuple(normalise(word) for word in words if not word.isspace())
+
+            for key in (cut, (normalise(spelling),)):
+                keys[key] = keys.get(key, frozenset()) | tags
+
+        return keys
 
     def _gather_queries(
         self,
@@ -58,27 +102,91 @@ class Locator:
             queries: The lemmas to look for, each narrowed to a tag or not.
 
         Returns:
-            The tags to read each lemma under, every tag standing in where a
-            query named none.
+            The lemmas and the forms to look for, every tag standing in where
+            a query named none.
         """
         if queries == self._last_queries:
             return self._last_lexicon
 
         ordered_queries = list(queries)
-        split_lemmas = self._engine.split_all(query.lemma for query in ordered_queries)
-
-        lexicon: dict[tuple[str, ...], frozenset[POS]] = {}
-
-        for query, words in zip(ordered_queries, split_lemmas, strict=True):
-            lemma = tuple(normalise(word) for word in words if not word.isspace())
-            tags = ALL_TAGS if query.pos is None else frozenset({query.pos})
-
-            lexicon[lemma] = lexicon.get(lemma, frozenset()) | tags
 
         self._last_queries = queries
-        self._last_lexicon = lexicon
+        self._last_lexicon = Lexicon(
+            lemmas=self._keys(
+                [
+                    (query, spelling)
+                    for query in ordered_queries
+                    for spelling in spellings(query.lemma)
+                ]
+            ),
+            forms=self._keys(
+                [
+                    (query, spelling)
+                    for query in ordered_queries
+                    for form in query.forms
+                    for spelling in spellings(form)
+                ]
+            ),
+        )
 
-        return lexicon
+        return self._last_lexicon
+
+    @staticmethod
+    def _span_tags(
+        lexicon: Lexicon,
+        word_lemmas: Sequence[str],
+        word_forms: Sequence[str],
+        cursor: int,
+        count: int,
+    ) -> frozenset[POS] | None:
+        """
+        Read the tags a span of words is looked for under.
+
+        Args:
+            lexicon: The lemmas and the forms to look for.
+            word_lemmas: What each word was read as.
+            word_forms: How each word is written.
+            cursor: Where the span opens.
+            count: How many words it holds.
+
+        Returns:
+            The tags, or None where nothing looks for that span.
+        """
+        tags = lexicon.lemmas.get(tuple(word_lemmas[cursor : cursor + count]))
+
+        # A form stands in where the engine read a word as another lemma.
+        if tags is None:
+            return lexicon.forms.get(tuple(word_forms[cursor : cursor + count]))
+
+        return tags
+
+    @staticmethod
+    def _phrasal_verb(
+        tokens: Sequence[Token],
+        index: int,
+        lemma: str,
+        particles: Sequence[int],
+        lexicon: Lexicon,
+    ) -> Sequence[Token] | None:
+        """
+        Look for a phrasal verb whose particle is written apart from it.
+
+        Args:
+            tokens: The words of the context.
+            index: Where the verb falls among them.
+            lemma: What the verb was read as, normalised.
+            particles: Where the particles hanging off it fall.
+            lexicon: The lemmas to look for.
+
+        Returns:
+            The verb and its particle, or None where the two are not a lemma
+            anyone asked for.
+        """
+        for particle in particles:
+            if (lemma, normalise(tokens[particle].lemma)) in lexicon.lemmas:
+                return (tokens[index], tokens[particle])
+
+        return None
 
     @staticmethod
     def _match(
@@ -115,36 +223,6 @@ class Locator:
             offsets=offsets,
         )
 
-    @staticmethod
-    def _phrasal_verb(
-        tokens: Sequence[Token],
-        index: int,
-        lemma: str,
-        particles: Sequence[int],
-        lexicon: Lexicon,
-    ) -> Sequence[Token] | None:
-        """
-        Look for a phrasal verb whose particle is written apart from it.
-
-        Args:
-            tokens: The words of the context.
-            index: Where the verb falls among them.
-            lemma: What the verb was read as, normalised.
-            particles: Where the particles hanging off it fall.
-            lexicon: The lemmas to look for.
-
-        Returns:
-            The verb and its particle, or None where the two are not a lemma
-            anyone asked for.
-        """
-        for particle in particles:
-            tags = lexicon.get((lemma, normalise(tokens[particle].lemma)))
-
-            if tags is not None and tokens[index].pos in tags:
-                return (tokens[index], tokens[particle])
-
-        return None
-
     @classmethod
     def _matches(
         cls,
@@ -166,17 +244,23 @@ class Locator:
         Returns:
             The occurrences, leftmost first and one to a word.
         """
-        # A run of whitespace is a word to spaCy and to nobody else, and it
-        # falls between the words of a lemma written over two lines.
+        # A run of whitespace is a word to spaCy and to nobody else, though a
+        # blank line parts two blocks and holds the words of a lemma apart.
         word_indices = [
-            index for index, token in enumerate(tokens) if not token.form.isspace()
+            index
+            for index, token in enumerate(tokens)
+            if not token.form.isspace() or token.form.count("\n") >= PARAGRAPH
         ]
 
         word_lemmas = [normalise(tokens[index].lemma) for index in word_indices]
+        word_forms = [normalise(tokens[index].form) for index in word_indices]
 
         # A query naming no lemma reads no words, and a span of no words
         # carries no tag to narrow it by.
-        word_counts = sorted({len(lemma) for lemma in lexicon if lemma}, reverse=True)
+        word_counts = sorted(
+            {len(key) for key in (*lexicon.lemmas, *lexicon.forms) if key},
+            reverse=True,
+        )
 
         particles: dict[int, list[int]] = {}
 
@@ -188,34 +272,47 @@ class Locator:
         cursor = 0
 
         while cursor < len(word_indices):
+            word_index = word_indices[cursor]
+
+            span: Sequence[Token] | None = None
+            step = 1
+
             for count in word_counts:
-                if cursor + count > len(word_indices):
-                    continue
+                if cursor + count <= len(word_indices):
+                    inside = word_indices[cursor : cursor + count]
 
-                tags = lexicon.get(tuple(word_lemmas[cursor : cursor + count]))
+                    tags = cls._span_tags(
+                        lexicon, word_lemmas, word_forms, cursor, count
+                    )
 
-                if tags is not None and tokens[word_indices[cursor]].pos in tags:
-                    span = [
-                        tokens[index] for index in word_indices[cursor : cursor + count]
-                    ]
+                    # A lemma of several words is an expression of its
+                    # own, whose category none of its words need carry.
+                    if tags is not None and (
+                        count > 1 or tokens[word_index].pos in tags
+                    ):
+                        span = [tokens[index] for index in inside]
+                        step = count
 
-                    matches.append(cls._match(span, word_indices[cursor], text))
-                    cursor += count
+                        break
 
-                    break
-            else:
-                phrasal_verb = cls._phrasal_verb(
-                    tokens,
-                    word_indices[cursor],
-                    word_lemmas[cursor],
-                    particles.get(word_indices[cursor], ()),
-                    lexicon,
-                )
+                # A phrasal verb is two words wherever its particle sits, so
+                # it is read before the verb alone is read as a lemma.
+                if count == PARTICLE_WORDS:
+                    span = cls._phrasal_verb(
+                        tokens,
+                        word_index,
+                        word_lemmas[cursor],
+                        particles.get(word_index, ()),
+                        lexicon,
+                    )
 
-                if phrasal_verb is not None:
-                    matches.append(cls._match(phrasal_verb, word_indices[cursor], text))
+                    if span is not None:
+                        break
 
-                cursor += 1
+            if span is not None:
+                matches.append(cls._match(span, word_index, text))
+
+            cursor += step
 
         return tuple(matches)
 
