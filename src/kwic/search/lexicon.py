@@ -17,6 +17,20 @@ type Cut = Callable[[Iterable[str]], Iterator[tuple[str, ...]]]
 
 
 @dataclass(frozen=True, slots=True)
+class Asked:
+    """
+    What one key was registered for.
+
+    Attributes:
+        lemma: The lemma a query named, as the caller wrote it.
+        tags: The tags it is read under.
+    """
+
+    lemma: str
+    tags: frozenset[POS]
+
+
+@dataclass(frozen=True, slots=True)
 class Lexicon:
     """
     The queried lemmas and forms, cut into words and normalised.
@@ -27,8 +41,8 @@ class Lexicon:
         counts: How many words a queried spelling holds, longest first.
     """
 
-    lemmas: Mapping[tuple[str, ...], frozenset[POS]]
-    forms: Mapping[tuple[str, ...], frozenset[POS]]
+    lemmas: Mapping[tuple[str, ...], Asked]
+    forms: Mapping[tuple[str, ...], Asked]
     counts: Sequence[int]
 
     @classmethod
@@ -48,7 +62,9 @@ class Lexicon:
             The lemmas and the forms to look for, every tag standing in where
             a query named none.
         """
-        asked = list(queries)
+        # Sorted, so that two queries writing one key are read in the
+        # same order every run and the lemma reported is settled.
+        asked = sorted(queries, key=lambda query: (query.lemma, query.pos or ""))
 
         lemmas = _keys(
             [
@@ -79,7 +95,7 @@ class Lexicon:
 def _keys(
     spelled: Sequence[tuple[Query, str]],
     cut: Cut,
-) -> dict[tuple[str, ...], frozenset[POS]]:
+) -> dict[tuple[str, ...], Asked]:
     """
     Cut every spelling into the words a context would be read as.
 
@@ -91,7 +107,7 @@ def _keys(
         The tags to look each cut up under, the whole spelling standing
         beside the cut for a text that writes it as one word.
     """
-    keys: dict[tuple[str, ...], frozenset[POS]] = {}
+    keys: dict[tuple[str, ...], Asked] = {}
 
     for (query, spelling), words in zip(
         spelled, cut(spelling for _, spelling in spelled), strict=True
@@ -100,6 +116,11 @@ def _keys(
         written = tuple(normalise(word) for word in words if not word.isspace())
 
         for key in (written, (normalise(spelling),)):
-            keys[key] = keys.get(key, frozenset()) | tags
+            held = keys.get(key)
+
+            keys[key] = Asked(
+                lemma=query.lemma if held is None else held.lemma,
+                tags=tags if held is None else held.tags | tags,
+            )
 
     return keys

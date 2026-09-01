@@ -6,9 +6,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Self
 
-from ..models import POS, Token
+from ..models import Token
 from ..normalisation import normalise
-from .lexicon import Lexicon
+from .lexicon import Asked, Lexicon
 
 PARAGRAPH = 2
 """How many line breaks part two blocks rather than wrap one line."""
@@ -70,12 +70,12 @@ class Reading:
             particles=particles,
         )
 
-    def tags(
+    def asked(
         self,
         lexicon: Lexicon,
         cursor: int,
         count: int,
-    ) -> frozenset[POS] | None:
+    ) -> Asked | None:
         """
         Look a span of words up, by what it was read as or by how it is written.
 
@@ -85,14 +85,14 @@ class Reading:
             count: How many words it holds.
 
         Returns:
-            The tags, or None where nothing looks for that span.
+            What the span was asked for, or None where nothing asks for it.
         """
-        tags = lexicon.lemmas.get(tuple(self.lemmas[cursor : cursor + count]))
+        asked = lexicon.lemmas.get(tuple(self.lemmas[cursor : cursor + count]))
 
-        if tags is None:
+        if asked is None:
             return lexicon.forms.get(tuple(self.forms[cursor : cursor + count]))
 
-        return tags
+        return asked
 
     def span(
         self,
@@ -115,7 +115,7 @@ class Reading:
         self,
         lexicon: Lexicon,
         cursor: int,
-    ) -> Sequence[Token] | None:
+    ) -> tuple[Sequence[Token], str] | None:
         """
         Look for a phrasal verb whose particle is written apart from it.
 
@@ -124,15 +124,17 @@ class Reading:
             cursor: Where the verb falls among the words to be read.
 
         Returns:
-            The verb and its particle, or None where the two are not a lemma
-            anyone asked for.
+            The verb and its particle with the lemma they were asked for, or
+            None where the two are not a lemma anyone asked for.
         """
         verb = self.places[cursor]
 
         for particle in self.particles.get(verb, ()):
-            if (self.lemmas[cursor], normalise(self.tokens[particle].lemma)) in (
-                lexicon.lemmas
-            ):
-                return (self.tokens[verb], self.tokens[particle])
+            asked = lexicon.lemmas.get(
+                (self.lemmas[cursor], normalise(self.tokens[particle].lemma))
+            )
+
+            if asked is not None:
+                return (self.tokens[verb], self.tokens[particle]), asked.lemma
 
         return None

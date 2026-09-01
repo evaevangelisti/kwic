@@ -13,11 +13,11 @@ class Match:
     """
     One occurrence of a queried lemma.
 
-    The lemma and the tag are the engine's reading of it, not the query's
-    wording. One of several words runs from the first of them to the last.
+    The lemma is the caller's own; everything else is the engine's reading.
+    One of several words runs from the first of them to the last.
 
     Attributes:
-        lemma: The lemma it was read as, its words spaced apart.
+        lemma: The lemma it was asked for, as the caller wrote it.
         pos: The tag it carries.
         form: How it is written.
         word_index: Where it opens among the words of the context, from zero.

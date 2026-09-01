@@ -66,6 +66,7 @@ class Locator:
     @staticmethod
     def _match(
         span: Sequence[Token],
+        lemma: str,
         index: int,
         text: str | None,
     ) -> Match:
@@ -74,6 +75,7 @@ class Locator:
 
         Args:
             span: The words it is made of.
+            lemma: The lemma it was asked for, as the caller wrote it.
             index: Where the first of them falls among the words.
             text: The context, where the caller handed over one.
 
@@ -89,7 +91,7 @@ class Locator:
         )
 
         return Match(
-            lemma=" ".join(token.lemma for token in span),
+            lemma=lemma,
             pos=span[0].pos,
             form=" ".join(token.form for token in span)
             if text is None or offsets is None
@@ -123,21 +125,23 @@ class Locator:
         cursor = 0
 
         while cursor < len(reading.places):
-            span, step = cls._opening(reading, lexicon, cursor)
+            match, step = cls._opening(reading, lexicon, cursor, text)
 
-            if span is not None:
-                matches.append(cls._match(span, reading.places[cursor], text))
+            if match is not None:
+                matches.append(match)
 
             cursor += step
 
         return tuple(matches)
 
-    @staticmethod
+    @classmethod
     def _opening(
+        cls,
         reading: Reading,
         lexicon: Lexicon,
         cursor: int,
-    ) -> tuple[Sequence[Token] | None, int]:
+        text: str | None,
+    ) -> tuple[Match | None, int]:
         """
         Read the occurrence one word opens, the longest one winning.
 
@@ -145,21 +149,26 @@ class Locator:
             reading: The words of the context, laid out.
             lexicon: The lemmas to look for.
             cursor: The word to read from.
+            text: The context, where the caller handed over one.
 
         Returns:
-            The words the occurrence is made of, or None where the word opens
-            none, and how many words to read on from.
+            The occurrence, or None where the word opens none, and how many
+            words to read on from.
         """
+        place = reading.places[cursor]
+
         for count in lexicon.counts:
             if cursor + count <= len(reading.places):
-                tags = reading.tags(lexicon, cursor, count)
+                asked = reading.asked(lexicon, cursor, count)
 
                 # A lemma of several words is an expression of its own, whose
                 # category none of its words need carry.
-                if tags is not None and (
-                    count > 1 or reading.tokens[reading.places[cursor]].pos in tags
+                if asked is not None and (
+                    count > 1 or reading.tokens[place].pos in asked.tags
                 ):
-                    return reading.span(cursor, count), count
+                    span = reading.span(cursor, count)
+
+                    return cls._match(span, asked.lemma, place, text), count
 
             # A phrasal verb is two words wherever its particle sits, so it is
             # read before the verb alone is read as a lemma.
@@ -167,7 +176,9 @@ class Locator:
                 parted = reading.phrasal_verb(lexicon, cursor)
 
                 if parted is not None:
-                    return parted, 1
+                    span, lemma = parted
+
+                    return cls._match(span, lemma, place, text), 1
 
         return None, 1
 

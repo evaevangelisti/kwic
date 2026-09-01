@@ -77,17 +77,25 @@ class TestOccurrences:
         reading: tuple[Token, ...],
         questions: list[Query],
     ) -> None:
-        """An occurrence is reported as it was read, not as it was asked for."""
+        """Everything but the lemma is reported as the engine read it."""
         assert all(
-            reading[match.word_index]
-            == Token(
-                lemma=match.lemma,
-                pos=match.pos,
-                form=match.form,
-                offsets=match.offsets,
+            (match.pos, match.form, match.offsets)
+            == (
+                reading[match.word_index].pos,
+                reading[match.word_index].form,
+                reading[match.word_index].offsets,
             )
             for match in _find_matches(reading, questions)
         )
+
+    def test_hands_back_the_lemma_it_was_asked_for(
+        self,
+    ) -> None:
+        """The lemma is the caller's own, not what the engine made of the word."""
+        reading = (Token(lemma="thank", pos=POS.NOUN, form="Thanks", offsets=None),)
+        asked = Query("thanks", POS.NOUN, frozenset({"Thanks"}))
+
+        assert _find_matches(reading, [asked])[0].lemma == "thanks"
 
     @given(readings, query_lists)
     def test_reads_every_word_a_query_asks_for(
@@ -155,7 +163,9 @@ class TestQueries:
         """A lemma opening a sentence is capitalised, and it is the lemma."""
         raised = [Query(query.lemma.upper(), query.pos) for query in questions]
 
-        assert _find_matches(reading, raised) == _find_matches(reading, questions)
+        assert [match.word_index for match in _find_matches(reading, raised)] == [
+            match.word_index for match in _find_matches(reading, questions)
+        ]
 
     @given(readings, queries)
     def test_reads_a_lemma_asked_for_twice_once(
