@@ -19,6 +19,9 @@ dependencies = [
 lemminflect = ["lemminflect>=0.2.3"]
 stanza = ["stanza>=1.14.0"]
 
+[project.urls]
+Repository = "https://github.com/evaevangelisti/kwic"
+
 [dependency-groups]
 docs = [
     "myst-parser>=5.1.0",
