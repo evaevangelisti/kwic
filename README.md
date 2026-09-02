@@ -29,6 +29,13 @@ pip install "kwic[stanza]"
 pip install "kwic[lemminflect]"
 ```
 
+Reading on the graphics card needs CuPy, whose wheel is named after the CUDA release `nvidia-smi` reports:
+
+```sh
+pip install "kwic[cuda12x]"
+pip install "kwic[cuda13x]"
+```
+
 <!-- usage -->
 
 ## Usage
@@ -122,6 +129,17 @@ An extra is imported from the module wrapping it, so a package without it still 
 ```python
 Locator(SpacyEngine(parse=False))
 ```
+
+Either engine reads on the graphics card when told to, which needs the CuPy extra above:
+
+```python
+Locator(SpacyEngine("en_core_web_trf", gpu=True))
+```
+
+| Asked for | Gets | Wants |
+| --- | --- | --- |
+| `gpu=True` | a card, or an error where none answers | one process, a large batch |
+| `gpu=False` | the processor | a small batch, padding being what it costs |
 
 <!-- accuracy -->
 
