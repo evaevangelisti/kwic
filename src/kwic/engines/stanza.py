@@ -64,6 +64,7 @@ class StanzaEngine(Engine):
         batch_size: int = BATCH_SIZE,
         *,
         parse: bool = True,
+        gpu: bool = False,
     ) -> None:
         """
         Take the language to read in, loading nothing until asked to read.
@@ -73,11 +74,14 @@ class StanzaEngine(Engine):
             batch_size: How many contexts are read at a time.
             parse: Whether to load the parser, which finds a phrasal verb
             written apart and doubles what a reading costs.
+            gpu: Whether to read on the graphics card. Stanza would take one
+            wherever it found it; here it is asked for or it is not.
         """
         self._language: str = language
 
         self._batch_size: int = batch_size
         self._processors: str = f"{PROCESSORS},{DEPPARSE}" if parse else PROCESSORS
+        self._gpu: bool = gpu
 
     @staticmethod
     def _build_document(
@@ -154,6 +158,7 @@ class StanzaEngine(Engine):
             lang=self._language,
             processors=self._processors,
             logging_level=LOGGING_LEVEL,
+            use_gpu=self._gpu,
         )
 
     @cached_property
@@ -166,6 +171,7 @@ class StanzaEngine(Engine):
             processors=self._processors,
             logging_level=LOGGING_LEVEL,
             tokenize_pretokenized=True,
+            use_gpu=self._gpu,
         )
 
     @override

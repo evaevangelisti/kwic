@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "kwic"
-version = "0.1.0"
+version = "0.2.0"
 description = "Key Word In Context"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -49,8 +49,6 @@ typing = [
     "basedpyright>=1.39.9",
 ]
 
-# The pipelines are published as wheels off their own releases rather than to
-# an index, so a lock file has to be told where each one is.
 [tool.uv.sources]
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
 en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }

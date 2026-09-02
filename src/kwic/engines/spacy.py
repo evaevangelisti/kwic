@@ -44,6 +44,7 @@ class SpacyEngine(Engine):
         processes: int = PROCESSES,
         *,
         parse: bool = True,
+        gpu: bool = False,
     ) -> None:
         """
         Load a pipeline, holding on to it for every context to come.
@@ -51,15 +52,24 @@ class SpacyEngine(Engine):
         Args:
             pipeline: The installed pipeline to load, such as en_core_web_sm.
             batch_size: How many contexts it reads at a time.
-            processes: How many processes it may run.
+            processes: How many processes it may run. One is what a card
+            wants, several readings of one card contending rather than
+            helping.
             parse: Whether to load the parser, which finds a phrasal verb
             written apart and settles several of the universal tags.
+            gpu: Whether to read on the graphics card, which a transformer
+            is worth asking for. Raises rather than falling back, a reading
+            that quietly went to the processor being one nobody notices.
 
         Raises:
             OSError: If the pipeline is not installed.
+            ValueError: If the graphics card was asked for and none answers.
             ValueError: When read, if a context is longer than spaCy's
             nlp.max_length, a million characters.
         """
+        if gpu:
+            _ = spacy.require_gpu()  # pyright: ignore[reportPrivateImportUsage]
+
         self._pipeline: Language = spacy.load(
             pipeline,
             exclude=list(EXCLUDED if parse else (PARSER, *EXCLUDED)),
