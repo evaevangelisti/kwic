@@ -1,5 +1,5 @@
 """
-The engine the suite reads with, which reads nothing at all.
+Engines with readings settled by search tests.
 """
 
 from collections.abc import Iterable, Iterator
@@ -12,9 +12,7 @@ class Given(Engine):
     """
     An engine handing back a reading settled beforehand.
 
-    A property about a search has to hold whatever the engine made of a
-    context. Settling the reading is what lets one be stated, and no model is
-    loaded to read it.
+    It isolates search properties from a language model.
     """
 
     def __init__(

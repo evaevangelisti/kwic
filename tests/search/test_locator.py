@@ -1,5 +1,5 @@
 """
-Tests for src/kwic/locator.py.
+Tests for src/kwic/search/locator.py.
 """
 
 import string
@@ -8,8 +8,8 @@ from itertools import pairwise
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from strategies import parts_of_speech, queries, query_lists, readings, words
-from stubs import Given
+from search.strategies import parts_of_speech, queries, query_lists, readings, words
+from search.stubs import Given
 
 from kwic import POS, Locator, Match, Query, Token
 

@@ -1,14 +1,7 @@
 """
-Generators the properties are drawn from.
+Generators for search properties.
 
-A generator says what an engine may read rather than what it usually reads:
-a property is only worth stating if the reading nobody thought of can
-falsify it, so the alphabets reach past ASCII and the lists reach down to
-empty.
-
-Words are drawn out of letters alone. A property comparing two spellings of
-one lemma rests on folding the case of it, and a form written with an
-apostrophe is spelled out where it is the point of the test.
+They include unusual readings, Unicode letters, and empty collections.
 """
 
 from hypothesis import strategies as st
