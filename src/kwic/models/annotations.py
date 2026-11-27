@@ -19,10 +19,8 @@ class Token:
         lemma: Its dictionary form, spelled as the engine spells it.
         pos: The tag it carries here.
         form: The word as it is written.
-        offsets: Where it falls in the text, or None where the caller handed
-        over words rather than a text.
-        particle_of: Where the verb it is the particle of falls among the
-        words, or None where it is not one. Only a parser sets it.
+        offsets: Text range, or None for pretokenised contexts.
+        particle_of: Index of the verb this token modifies as a particle, if any.
     """
 
     lemma: str

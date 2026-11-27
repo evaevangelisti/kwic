@@ -124,8 +124,7 @@ class Reading:
             cursor: Where the verb falls among the words to be read.
 
         Returns:
-            The verb and its particle with the lemma they were asked for, or
-            None where the two are not a lemma anyone asked for.
+            The verb and particle with their queried lemma, or None if absent.
         """
         verb = self.places[cursor]
 

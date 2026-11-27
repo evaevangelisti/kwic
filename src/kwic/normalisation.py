@@ -31,8 +31,7 @@ def spellings(
         lemma: The lemma, as a query names it.
 
     Returns:
-        Every way of parting its words with a space or a hyphen, and the one
-        that parts them with nothing.
+        Spellings with spaces, hyphens or joined words.
     """
     written = " ".join(lemma.translate(MARKS).split())
     parts = [part for part in SEPARATORS.split(written) if part]

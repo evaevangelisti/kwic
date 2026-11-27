@@ -52,20 +52,14 @@ class SpacyEngine(Engine):
         Args:
             pipeline: The installed pipeline to load, such as en_core_web_sm.
             batch_size: How many contexts it reads at a time.
-            processes: How many processes it may run. One is what a card
-            wants, several readings of one card contending rather than
-            helping.
-            parse: Whether to load the parser, which finds a phrasal verb
-            written apart and settles several of the universal tags.
-            gpu: Whether to read on the graphics card, which a transformer
-            is worth asking for. Raises rather than falling back, a reading
-            that quietly went to the processor being one nobody notices.
+            processes: How many worker processes to use. Use one on a GPU.
+            parse: Whether to parse dependencies for phrasal verbs and POS rules.
+            gpu: Whether to require a GPU for inference.
 
         Raises:
             OSError: If the pipeline is not installed.
             ValueError: If the graphics card was asked for and none answers.
-            ValueError: When read, if a context is longer than spaCy's
-            nlp.max_length, a million characters.
+            ValueError: If a context exceeds spaCy's nlp.max_length when read.
         """
         if gpu:
             _ = spacy.require_gpu()  # pyright: ignore[reportPrivateImportUsage]
@@ -149,7 +143,6 @@ class SpacyEngine(Engine):
                 pos=self._tag(word.pos_),
                 form=word.text,
                 offsets=(word.idx, word.idx + len(word)) if is_located else None,
-                # Read without the parser, every word is labelled with nothing.
                 particle_of=word.head.i if word.dep_ == PARTICLE else None,
             )
 

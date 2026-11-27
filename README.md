@@ -53,17 +53,17 @@ locator.find("She found the keys she had lost.", [Query("find", POS.VERB)])
 
 ### Query
 
-| Field | Default | |
+| Field | Default | Description |
 | --- | --- | --- |
 | `lemma` | | Dictionary form to look for, in whatever case |
-| `pos` | `None` | Tag a one-word occurrence must carry; a longer lemma is not narrowed |
+| `pos` | `None` | Required token tag or declared expression tag |
 | `forms` | `()` | How else the lemma is written, taken where the engine read another |
 
 The engine cuts the lemma into words, and a space and a hyphen are one to it.
 
 ```python
 locator.find("It was hunky-dory.", [Query("hunky dory")])
-# (Match(lemma='hunky dory', pos=POS.ADJ, form='hunky-dory', word_index=2, offsets=(7, 17)),)
+# (Match(lemma='hunky dory', pos=None, form='hunky-dory', word_index=2, offsets=(7, 17)),)
 ```
 
 A phrasal verb written apart runs from the verb to the particle.
@@ -75,10 +75,10 @@ locator.find("She gave the money up.", [Query("give up")])
 
 ### Match
 
-| Field | |
+| Field | Description |
 | --- | --- |
 | `lemma` | The lemma you asked for, as you wrote it |
-| `pos` | The tag it carries |
+| `pos` | The token's tag or the expression's category. `None` means the category is unknown or ambiguous. |
 | `form` | How it is written |
 | `word_index` | Where it opens among the words, from zero |
 | `offsets` | Where it falls in the text, half-open and in code points |

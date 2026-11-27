@@ -1,9 +1,6 @@
 # Built documentation
 docs/build/
 
-# Coverage reports
-.coverage
-
 # Virtual environments
 .venv/
 

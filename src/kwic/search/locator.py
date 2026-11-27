@@ -6,7 +6,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from itertools import tee
 
 from ..engines import Engine, SpacyEngine
-from ..models import Context, Match, Query, Token
+from ..models import POS, Context, Match, Query, Token
 from .lexicon import Lexicon
 from .reading import Reading
 
@@ -30,8 +30,7 @@ class Locator:
         Take an engine to read with, loading the default one if given none.
 
         Args:
-            engine: The analyser to read contexts with. The default loads
-            spaCy's small English pipeline, which has to be installed.
+            engine: The analyser, defaulting to spaCy's small English pipeline.
 
         Raises:
             OSError: If the default pipeline is not installed.
@@ -67,6 +66,7 @@ class Locator:
     def _match(
         span: Sequence[Token],
         lemma: str,
+        pos: POS | None,
         index: int,
         text: str | None,
     ) -> Match:
@@ -76,6 +76,7 @@ class Locator:
         Args:
             span: The words it is made of.
             lemma: The lemma it was asked for, as the caller wrote it.
+            pos: The category of the occurrence, when known.
             index: Where the first of them falls among the words.
             text: The context, where the caller handed over one.
 
@@ -92,7 +93,7 @@ class Locator:
 
         return Match(
             lemma=lemma,
-            pos=span[0].pos,
+            pos=pos,
             form=" ".join(token.form for token in span)
             if text is None or offsets is None
             else text[offsets[0] : offsets[1]],
@@ -152,8 +153,7 @@ class Locator:
             text: The context, where the caller handed over one.
 
         Returns:
-            The occurrence, or None where the word opens none, and how many
-            words to read on from.
+            The match or None, and the number of words to advance.
         """
         place = reading.places[cursor]
 
@@ -168,7 +168,16 @@ class Locator:
                 ):
                     span = reading.span(cursor, count)
 
-                    return cls._match(span, asked.lemma, place, text), count
+                    if count == 1:
+                        pos = span[0].pos
+                    elif count == PARTICLE_WORDS and span[-1].particle_of == place:
+                        pos = POS.VERB
+                    elif len(asked.declared_tags) == 1:
+                        pos = next(iter(asked.declared_tags))
+                    else:
+                        pos = None
+
+                    return cls._match(span, asked.lemma, pos, place, text), count
 
             # A phrasal verb is two words wherever its particle sits, so it is
             # read before the verb alone is read as a lemma.
@@ -178,7 +187,7 @@ class Locator:
                 if parted is not None:
                     span, lemma = parted
 
-                    return cls._match(span, lemma, place, text), 1
+                    return cls._match(span, lemma, POS.VERB, place, text), 1
 
         return None, 1
 
@@ -196,8 +205,7 @@ class Locator:
             searches: A context and the lemmas to look for in it, in pairs.
 
         Yields:
-            The occurrences in one context, in the order the searches came
-            in, and nothing at all for a context attesting none of them.
+            Each context's matches in input order, including empty tuples.
         """
         reading_searches, matching_searches = tee(searches)
 

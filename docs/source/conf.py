@@ -16,7 +16,7 @@ sys.path.insert(0, (Path(__file__).parents[2] / "src").as_posix())
 project = "kwic"
 project_copyright = "2026, Eva Evangelisti"
 author = "Eva Evangelisti"
-release = "0.2.1.post1"
+release = "0.3.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

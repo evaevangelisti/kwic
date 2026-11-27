@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "kwic"
-version = "0.2.1.post1"
+version = "0.3.0"
 description = "Key Word In Context"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -50,12 +50,6 @@ models = [
     "en-core-web-trf",
 ]
 
-test = [
-    "hypothesis>=6.165.9",
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-]
-
 typing = [
     "basedpyright>=1.39.9",
 ]
@@ -98,7 +92,6 @@ select = [
     "PLC",   # Pylint, conventions
     "PLE",   # Pylint, errors
     "PLW",   # Pylint, warnings
-    "PT",    # flake8-pytest-style
     "PTH",   # flake8-use-pathlib
     "PYI",   # flake8-pyi
     "RET",   # flake8-return
@@ -131,22 +124,5 @@ convention = "google"
 [tool.basedpyright]
 typeCheckingMode = "recommended"
 
-# Where the suite and the studies keep what they share, which pytest and the
-# scripts put on the path too.
-extraPaths = ["tests", "research"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = ["--import-mode=importlib", "--strict-markers"]
-
-# A pipeline is loaded once and read by every property, which is slow enough
-# to be worth naming so that a run can leave it out.
-markers = ["pipeline: exercises a search through a real pipeline"]
-
-# The generators and the contexts the suite shares are written once, beside
-# the tests drawing from them.
-pythonpath = ["tests"]
-
-[tool.coverage.run]
-source = ["src"]
-branch = true
+# Where the evaluation scripts keep shared modules.
+extraPaths = ["research"]

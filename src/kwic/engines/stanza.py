@@ -72,10 +72,8 @@ class StanzaEngine(Engine):
         Args:
             language: The language to load the processors for.
             batch_size: How many contexts are read at a time.
-            parse: Whether to load the parser, which finds a phrasal verb
-            written apart and doubles what a reading costs.
-            gpu: Whether to read on the graphics card. Stanza would take one
-            wherever it found it; here it is asked for or it is not.
+            parse: Whether to parse dependencies to find split phrasal verbs.
+            gpu: Whether to use a GPU for inference.
         """
         self._language: str = language
 
@@ -94,8 +92,7 @@ class StanzaEngine(Engine):
             context: The text or the words to read.
 
         Returns:
-            A document carrying the text, or one carrying the words given.
-            The second carries no text, and so no index into one.
+            A document holding raw text or pretokenised words.
         """
         if isinstance(context, tuple):
             words = [
@@ -118,8 +115,7 @@ class StanzaEngine(Engine):
             document: The document the pipeline handed back.
 
         Yields:
-            One word at a time. A token holding several words, as doesn't
-            does, hands each of them the range the whole token occupies.
+            Words in order, with shared offsets for words in the same token.
         """
         word_index = 0
 

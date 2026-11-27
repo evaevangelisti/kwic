@@ -37,8 +37,7 @@ class LemmInflectEngine(SpacyEngine):
             word: The word the pipeline read.
 
         Returns:
-            The likeliest lemma the lexicon holds for it, or what the rules
-            of the pipeline made of it where the tag is not one it holds.
+            The lexicon's first lemma, or spaCy's lemma when unavailable.
         """
         if word.pos_ not in SUPPORTED:
             return super()._lemma(word)

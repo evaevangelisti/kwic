@@ -23,11 +23,13 @@ class Asked:
 
     Attributes:
         lemma: The lemma a query named, as the caller wrote it.
-        tags: The tags it is read under.
+        tags: The tags a single token is read under.
+        declared_tags: The tags declared for the reported lemma.
     """
 
     lemma: str
     tags: frozenset[POS]
+    declared_tags: frozenset[POS]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,8 +61,7 @@ class Lexicon:
             cut: How the engine cuts a spelling into words.
 
         Returns:
-            The lemmas and the forms to look for, every tag standing in where
-            a query named none.
+            Indexed lemmas and forms, with all tags allowed for untagged queries.
         """
         # Sorted, so that two queries writing one key are read in the
         # same order every run and the lemma reported is settled.
@@ -104,23 +105,36 @@ def _keys(
         cut: How the engine cuts a spelling into words.
 
     Returns:
-        The tags to look each cut up under, the whole spelling standing
-        beside the cut for a text that writes it as one word.
+        Queries indexed by token sequence and whole spelling.
     """
     keys: dict[tuple[str, ...], Asked] = {}
 
     for (query, spelling), words in zip(
         spelled, cut(spelling for _, spelling in spelled), strict=True
     ):
-        tags = ALL_TAGS if query.pos is None else frozenset({query.pos})
+        declared_tags: frozenset[POS] = (
+            frozenset() if query.pos is None else frozenset({query.pos})
+        )
+        tags = declared_tags or ALL_TAGS
+
         written = tuple(normalise(word) for word in words if not word.isspace())
 
         for key in (written, (normalise(spelling),)):
             held = keys.get(key)
 
+            if held is None:
+                keys[key] = Asked(query.lemma, tags, declared_tags)
+                continue
+
+            combined_tags = held.declared_tags
+
+            if normalise(held.lemma) == normalise(query.lemma):
+                combined_tags |= declared_tags
+
             keys[key] = Asked(
-                lemma=query.lemma if held is None else held.lemma,
-                tags=tags if held is None else held.tags | tags,
+                lemma=held.lemma,
+                tags=held.tags | tags,
+                declared_tags=combined_tags,
             )
 
     return keys
